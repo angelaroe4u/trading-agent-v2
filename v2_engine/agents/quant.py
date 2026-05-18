@@ -59,12 +59,23 @@ class Quant(Agent):
             print(f"V2 Quant gen-0: cannot import V1 council ({e})")
             return []
         prev_cwd = os.getcwd()
+        timeout_s = int(os.getenv("V2_COUNCIL_TIMEOUT_S", "90"))
         try:
             os.chdir(v1_repo)
-            queue = v1_council.run_council(ctx.trading_day)
-        except Exception as e:
-            print(f"V2 Quant gen-0: V1 council failed ({e}); returning []")
-            return []
+            # Run V1's council in a worker thread with a hard timeout — if
+            # Gemini/Llama/Opus stall on a 503 retry loop, we don't hang
+            # forever; we time out and let the momentum fallback take over.
+            import concurrent.futures as cf
+            with cf.ThreadPoolExecutor(max_workers=1) as pool:
+                fut = pool.submit(v1_council.run_council, ctx.trading_day)
+                try:
+                    queue = fut.result(timeout=timeout_s)
+                except cf.TimeoutError:
+                    print(f"V2 Quant gen-0: V1 council exceeded {timeout_s}s — abandoning, will use fallback")
+                    return []
+                except Exception as e:
+                    print(f"V2 Quant gen-0: V1 council failed ({e}); returning []")
+                    return []
         finally:
             os.chdir(prev_cwd)
         print(f"V2 Quant gen-0: V1 council returned {len(queue) if queue else 0} candidates")
