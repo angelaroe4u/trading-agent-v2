@@ -20,7 +20,7 @@ test -d "$V2_DIR" || { echo "V2 dir missing at $V2_DIR — git pull/sync first";
 echo "[v2 install] installing V2 python deps into shared venv"
 "$VENV/bin/pip" install --upgrade pip >/dev/null
 "$VENV/bin/pip" install -q \
-    rank_bm25 faiss-cpu sentence-transformers tiktoken \
+    flask rank_bm25 faiss-cpu sentence-transformers tiktoken \
     || echo "[v2 install] WARN: some optional deps failed; FAISS path will skip gracefully"
 
 echo "[v2 install] seeding V2 ledger if absent"
