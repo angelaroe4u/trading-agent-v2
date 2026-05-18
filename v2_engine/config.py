@@ -58,7 +58,11 @@ V2_DARE_MAX_TOKENS     = 12_000
 V2_DARE_MIN_PRECISION  = 0.70
 V2_PI_SERINI_MAX_ITERS = 4
 
-V1_REPO_PATH          = os.getenv("V1_REPO_PATH", r"C:\Projects\tradingap")
+# Default V1 location differs by OS — Windows for Angela's laptop, Linux for Hetzner.
+V1_REPO_PATH          = os.getenv(
+    "V1_REPO_PATH",
+    "/opt/tradingap" if os.name == "posix" else r"C:\Projects\tradingap",
+)
 V1_TRADE_LOG          = os.getenv("V1_TRADE_LOG",          os.path.join(V1_REPO_PATH, "trade_log.jsonl"))
 V1_LEDGER             = os.getenv("V1_LEDGER",             os.path.join(V1_REPO_PATH, "executioner_ledger.json"))
 V1_SEMANTIC_MEMORY_DB = os.getenv("V1_SEMANTIC_MEMORY_DB", os.path.join(V1_REPO_PATH, "semantic_memory.db"))

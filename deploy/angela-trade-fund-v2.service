@@ -9,6 +9,7 @@ User=angela
 WorkingDirectory=/opt/tradingap/Trading Agent 2.0
 EnvironmentFile=/opt/tradingap/.env
 EnvironmentFile=-/opt/tradingap/Trading Agent 2.0/.env
+Environment=V1_REPO_PATH=/opt/tradingap
 ExecStart=/opt/tradingap/venv/bin/python -m v2_engine.orchestrator
 Restart=always
 RestartSec=10
