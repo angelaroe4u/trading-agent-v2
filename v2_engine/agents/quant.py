@@ -42,6 +42,13 @@ class Quant(Agent):
 
     # ----- V1 council path -----
     def _gen0_via_v1_council(self, ctx):
+        """Import V1's council and call run_council().
+
+        V1's semantic_memory.py opens the DB with a RELATIVE path, so we must
+        chdir into V1_REPO_PATH for the duration of the call — otherwise
+        SQLite silently creates an empty DB in our cwd and every table lookup
+        fails with 'no such table'.
+        """
         v1_repo = os.getenv("V1_REPO_PATH", "/opt/tradingap"
                             if os.name == "posix" else r"C:\Projects\tradingap")
         if v1_repo not in sys.path:
@@ -51,12 +58,17 @@ class Quant(Agent):
         except Exception as e:
             print(f"V2 Quant gen-0: cannot import V1 council ({e})")
             return []
+        prev_cwd = os.getcwd()
         try:
+            os.chdir(v1_repo)
             queue = v1_council.run_council(ctx.trading_day)
         except Exception as e:
             print(f"V2 Quant gen-0: V1 council failed ({e}); returning []")
             return []
-        return [self._row_to_candidate(r) for r in queue]
+        finally:
+            os.chdir(prev_cwd)
+        print(f"V2 Quant gen-0: V1 council returned {len(queue) if queue else 0} candidates")
+        return [self._row_to_candidate(r) for r in (queue or [])]
 
     # ----- Fallback: rank FALLBACK_UNIVERSE by 5-day momentum via Alpaca -----
     def _fallback_momentum(self, ctx) -> list[Candidate]:
