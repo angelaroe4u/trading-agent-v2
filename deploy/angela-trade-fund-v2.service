@@ -11,13 +11,11 @@ EnvironmentFile=/opt/tradingap/.env
 EnvironmentFile=-/opt/tradingap/Trading Agent 2.0/.env
 Environment=V1_REPO_PATH=/opt/tradingap
 Environment=PYTHONUNBUFFERED=1
+OOMScoreAdjust=-100
 ExecStart=/opt/tradingap/venv/bin/python -m v2_engine.orchestrator
 Restart=always
-RestartSec=10
+RestartSec=30
 
-# Resource limits — we share an 8 GB box with V1
-MemoryMax=3G
-CPUQuota=150%
 
 [Install]
 WantedBy=multi-user.target
