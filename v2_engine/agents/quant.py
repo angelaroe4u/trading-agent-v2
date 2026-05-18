@@ -1,25 +1,26 @@
 """
-v2_engine.agents.quant — the Darwinian-evolved Quantitative Agent.
+v2_engine.agents.quant — Quant Agent.
 
-In generation 0 this is a thin wrapper around V1's `council_v2.run_council`
-so we have a working baseline to compare against. From generation 1 on,
-the Quant agent wears a LoRA adapter selected by the evolutionary loop in
-``v2_engine.evolution`` (see ``fitness.py`` and ``tournament.py``).
-
-The Quant agent's job is to assign ``conviction`` and ``expected_move_pct``
-to each candidate ticker from the Extractor. It does NOT execute trades
-and does NOT apply hard constraints — those belong to the Synthesizer.
+Gen-0: tries V1's council first. If V1's DB is incomplete or council errors,
+falls back to a simple Alpaca-based momentum pick so V2 still trades.
 """
 from __future__ import annotations
 
-import json
 import os
 import sys
-from pathlib import Path
+from datetime import datetime, timedelta
 
 from v2_engine.agents.base import Agent, AgentContext
 from v2_engine.evolution.fitness import Candidate
 from v2_engine import config as cfg
+
+
+# A short, liquid universe used by the fallback. Modify in one place.
+FALLBACK_UNIVERSE = [
+    "AAPL","MSFT","NVDA","TSLA","AMD","META","AMZN","GOOGL","NFLX","AVGO",
+    "PLTR","SOFI","MARA","RIOT","COIN","HOOD","SHOP","ROKU","SNAP","UBER",
+    "F","GM","BAC","JPM","XOM","CVX","WMT","TGT","DIS","NKE",
+]
 
 
 class Quant(Agent):
@@ -32,20 +33,23 @@ class Quant(Agent):
 
     def run(self, ctx: AgentContext) -> list[Candidate]:
         if self.generation == 0:
-            return self._gen0_via_v1_council(ctx)
+            cands = self._gen0_via_v1_council(ctx)
+            if cands:
+                return cands
+            print("V2 Quant: V1 council returned no candidates — using momentum fallback")
+            return self._fallback_momentum(ctx)
         return self._gen_n_via_evolved_adapter(ctx)
 
-    # ------------------------------------------------------------
-    # Generation 0 — call V1's council directly for a baseline queue
-    # ------------------------------------------------------------
-    def _gen0_via_v1_council(self, ctx: AgentContext) -> list[Candidate]:
-        v1_repo = os.getenv("V1_REPO_PATH", r"C:\Projects\tradingap")
+    # ----- V1 council path -----
+    def _gen0_via_v1_council(self, ctx):
+        v1_repo = os.getenv("V1_REPO_PATH", "/opt/tradingap"
+                            if os.name == "posix" else r"C:\Projects\tradingap")
         if v1_repo not in sys.path:
             sys.path.insert(0, v1_repo)
         try:
             import council_v2 as v1_council
         except Exception as e:
-            print(f"V2 Quant gen-0: failed to import V1 council ({e}); returning []")
+            print(f"V2 Quant gen-0: cannot import V1 council ({e})")
             return []
         try:
             queue = v1_council.run_council(ctx.trading_day)
@@ -54,13 +58,63 @@ class Quant(Agent):
             return []
         return [self._row_to_candidate(r) for r in queue]
 
-    # ------------------------------------------------------------
-    # Generation 1+ — call evolved adapter via the base model
-    # ------------------------------------------------------------
-    def _gen_n_via_evolved_adapter(self, ctx: AgentContext) -> list[Candidate]:
-        # TODO(angela): load self.adapter_path into the base model via peft,
-        # prompt with the dossiers from ctx.retrieval, parse JSON output
-        # into Candidate list. See lora/adapter_swap.py for the loader.
+    # ----- Fallback: rank FALLBACK_UNIVERSE by 5-day momentum via Alpaca -----
+    def _fallback_momentum(self, ctx) -> list[Candidate]:
+        try:
+            from alpaca.data.historical import StockHistoricalDataClient
+            from alpaca.data.requests import StockBarsRequest
+            from alpaca.data.timeframe import TimeFrame
+        except Exception as e:
+            print(f"V2 Quant fallback: alpaca SDK missing ({e})")
+            return []
+        c = StockHistoricalDataClient(
+            os.getenv("V2_ALPACA_API_KEY") or os.getenv("ALPACA_API_KEY"),
+            os.getenv("V2_ALPACA_SECRET_KEY") or os.getenv("ALPACA_SECRET_KEY"),
+        )
+        end = datetime.now()
+        start = end - timedelta(days=10)
+        try:
+            req = StockBarsRequest(symbol_or_symbols=FALLBACK_UNIVERSE,
+                                   timeframe=TimeFrame.Day, start=start, end=end)
+            df = c.get_stock_bars(req).df
+        except Exception as e:
+            print(f"V2 Quant fallback: Alpaca bars fetch failed ({e})")
+            return []
+        if df is None or df.empty:
+            return []
+
+        # Compute 5-day momentum per ticker = (last_close / 5d_ago_close) - 1
+        out: list[Candidate] = []
+        for ticker in FALLBACK_UNIVERSE:
+            try:
+                sub = df.xs(ticker, level=0)
+                if len(sub) < 5:
+                    continue
+                last = float(sub["close"].iloc[-1])
+                five_ago = float(sub["close"].iloc[-5])
+                mom = (last / five_ago - 1.0) * 100.0
+                if mom <= 0:
+                    continue
+                # Map momentum to conviction in [0.70, 0.99]
+                conv = max(0.70, min(0.99, 0.70 + mom / 20.0))
+                out.append(Candidate(
+                    ticker=ticker,
+                    conviction=conv,
+                    expected_move_pct=mom * 0.6,  # rough 5d → forward 5d projection
+                    source="fallback_momentum",
+                    thesis=f"5d momentum {mom:+.2f}% (fallback while V1 council DB is incomplete)",
+                ))
+            except Exception:
+                continue
+        out.sort(key=lambda c: -c.conviction)
+        # Rank 1..N
+        for i, c in enumerate(out, 1):
+            c.rank = i
+        print(f"V2 Quant fallback: generated {len(out)} momentum candidates "
+              f"(top: {[(c.ticker, round(c.conviction,2)) for c in out[:5]]})")
+        return out[: cfg.V1_BASELINE_QUEUE_SIZE]
+
+    def _gen_n_via_evolved_adapter(self, ctx):
         return []
 
     @staticmethod

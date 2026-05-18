@@ -9,6 +9,7 @@ WorkingDirectory=/opt/tradingap/Trading Agent 2.0
 EnvironmentFile=/opt/tradingap/.env
 EnvironmentFile=-/opt/tradingap/Trading Agent 2.0/.env
 Environment=V1_REPO_PATH=/opt/tradingap
+Environment=PYTHONUNBUFFERED=1
 Environment=V2_DASHBOARD_PORT=5001
 ExecStart=/opt/tradingap/venv/bin/python -m paper_trade.dashboard_v2
 Restart=on-failure
