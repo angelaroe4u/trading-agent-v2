@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.pytest_cache/
+pytest-cache-files-*/
+.tox/
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (NEVER commit)
+.env
+.env.local
+*.key
+*.pem
+.ssh_*
+
+# Runtime data — V2's live state, not source
+v2_ledger.json
+v2_trade_log.jsonl
+comparison_ledger.jsonl
+v2_engine.log
+v2_ui.log
+reports/
+
+# Built indexes (rebuildable from V1's semantic_memory.db)
+memory_v2/indexes/
+
+# Models / adapters (too big for git; use HF Hub or S3)
+models/
+*.safetensors
+*.pth
+*.pkl
+!tests/**/*.pkl
+
+# Trade artifacts that shouldn't end up in the repo
+*.csv
+trade_log.jsonl
+executioner_ledger.json

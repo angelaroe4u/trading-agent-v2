@@ -1,0 +1,53 @@
+[project]
+name = "trading-agent-v2"
+version = "2.0.0a2"
+description = "Dynamic Multi-Agent RAG successor to V1 in C:\\Projects\\tradingap"
+requires-python = ">=3.11"
+dependencies = [
+  # V1-compatible core
+  "alpaca-py>=0.31",
+  "python-dotenv>=1.0",
+  "requests>=2.32",
+  "numpy>=1.26",
+  "scipy>=1.13",
+  "pandas>=2.2",
+  "pytz",
+  # V2 retrieval (free + small)
+  "faiss-cpu>=1.8",
+  "rank-bm25>=0.2.2",
+  "sentence-transformers>=2.7",
+  "tiktoken>=0.7",
+  # V2 LLM stack (same vendors as V1)
+  "openai>=1.30",
+  "anthropic>=0.34",
+  "google-generativeai>=0.7",
+  # Dev
+  "pytest>=8",
+  "pytest-asyncio>=0.23",
+]
+
+[project.optional-dependencies]
+# Heavy / GPU; install only on the box that runs evolution + distillation
+evolution = [
+  "torch>=2.3",
+  "transformers>=4.42",
+  "peft>=0.11",
+  "safetensors>=0.4",
+  "mergekit>=0.0.5",         # canonical: arcee-ai/mergekit
+]
+agents = [
+  "langgraph>=0.2",          # canonical: langchain-ai/langgraph
+]
+distill = [
+  "unsloth>=2024.8",         # canonical: unslothai/unsloth
+  "trl>=0.10",
+  "datasets>=2.20",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["v2_engine*", "shared*", "paper_trade*", "memory_v2*"]

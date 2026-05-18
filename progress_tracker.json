@@ -1,0 +1,39 @@
+{
+  "objective": "Finish V2 Trading Agent end-to-end: port V1 intraday logic, wire single-account dual-ledger safely, prepare Hetzner deploy artifacts, run tests, document.",
+  "started_at": "2026-05-17",
+  "completed_at": "2026-05-17",
+  "constraints": {
+    "single_alpaca_paper_account": true,
+    "v2_budget_usd": 2000,
+    "v2_client_order_id_prefix": "v2_",
+    "v1_client_order_id_prefix": "v1_",
+    "host": "Hetzner CCX23 (5.161.197.162) — same box as V1",
+    "spend_cap_usd": 25
+  },
+  "actual_spend_usd": 0,
+  "spend_notes": "Frugality override held; all deps are free/open-source. No Procurement_Report.md needed.",
+  "batches": [
+    {"id": 1, "name": "Single-account dual-ledger safety",                  "status": "COMPLETE"},
+    {"id": 2, "name": "Port V1 intraday risk loop",                          "status": "COMPLETE"},
+    {"id": 3, "name": "Real V2 council (Gen-0 wraps V1 council)",            "status": "COMPLETE"},
+    {"id": 4, "name": "Migration script resumable + small-corpus test mode", "status": "COMPLETE"},
+    {"id": 5, "name": "Hetzner deploy artifacts (systemd + scripts)",        "status": "COMPLETE"},
+    {"id": 6, "name": "Tests for new behavior + full pytest (27 passed)",    "status": "COMPLETE"},
+    {"id": 7, "name": "Docs + memory update",                                "status": "COMPLETE"}
+  ],
+  "test_summary": {
+    "passed": 27,
+    "skipped": 1,
+    "skipped_reason": "Full historical replay test needs C:\\Projects\\tradingap\\memory\\decisions\\ populated with V1 deploy snapshots; will start passing once V1 writes its first snapshot under the new schema."
+  },
+  "executive_decisions": [
+    "client_order_id prefix v2_<unix>_<ticker>_<6hex> on every V2 order; reconcile filters by prefix",
+    "Separate V2 ledger at /opt/tradingap/Trading Agent 2.0/v2_ledger.json (V1 ledger untouched)",
+    "V2 lives at /opt/tradingap/Trading Agent 2.0/ on same CCX23; reuses /opt/tradingap/venv + .env",
+    "Dashboard port 5001 for V2 (V1 keeps 5000)",
+    "FAISS index built lazily; orchestrator gracefully no-ops if absent",
+    "Divergence curve caps at 0.85 (V1 semantics) — never extrapolates to 1.0",
+    "Frugality: rank_bm25 + faiss-cpu + MiniLM; existing Anthropic/Groq/Gemini keys reused"
+  ],
+  "hard_blockers_hit": []
+}
