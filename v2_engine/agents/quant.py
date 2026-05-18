@@ -58,6 +58,15 @@ class Quant(Agent):
         except Exception as e:
             print(f"V2 Quant gen-0: cannot import V1 council ({e})")
             return []
+
+        # ---- Substitute Picker B: GPT in place of Gemini ----
+        # V2's choice — V1's source is untouched. Gemini's been 503'ing all
+        # morning so we route V1's "gemini" slot through OpenAI's GPT instead.
+        # If the OPENAI_API_KEY isn't set, we fall back to V1's original
+        # _gemini_analyze (and the council can still proceed Llama-only).
+        if os.getenv("OPENAI_API_KEY"):
+            v1_council._gemini_analyze = _gpt_picker_b
+            print(f"V2 Quant gen-0: substituted Picker B → GPT ({os.getenv('GPT_MODEL','gpt-5.5')})")
         prev_cwd = os.getcwd()
         timeout_s = int(os.getenv("V2_COUNCIL_TIMEOUT_S", "90"))
         try:
