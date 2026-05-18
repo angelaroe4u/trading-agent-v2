@@ -47,3 +47,7 @@ models/
 *.csv
 trade_log.jsonl
 executioner_ledger.json
+
+# Backgrounds for the V2 dashboard — keep these tracked
+!background_pictures/
+!background_pictures/**
