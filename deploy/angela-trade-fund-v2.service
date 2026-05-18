@@ -13,8 +13,6 @@ Environment=V1_REPO_PATH=/opt/tradingap
 ExecStart=/opt/tradingap/venv/bin/python -m v2_engine.orchestrator
 Restart=always
 RestartSec=10
-StandardOutput=append:/opt/tradingap/Trading Agent 2.0/v2_engine.log
-StandardError=append:/opt/tradingap/Trading Agent 2.0/v2_engine.log
 
 # Resource limits — we share an 8 GB box with V1
 MemoryMax=3G
