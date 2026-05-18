@@ -1,7 +1,9 @@
 """
-v2_engine.intraday.trailing_stop — flat -2% trailing stop from peak.
+v2_engine.intraday.trailing_stop — ADR-based trailing stop.
 
-Mirror of V1's trailing_stop_check (V4.4: flat percent, tighter than ADR-based).
+Per-position stop band = max(MIN_BAND_PCT, V2_TRAILING_STOP_ADR_MULT * ADR_14d%).
+If ADR is unavailable / zero (new ticker, fetch failure), we fall back to V1's
+flat V1_BASELINE_TRAILING_STOP_PCT so the position is never left unprotected.
 """
 from __future__ import annotations
 
@@ -10,6 +12,18 @@ from typing import Callable
 
 from v2_engine import config as cfg
 from shared.ledger_schema import Ledger, UnsettledProceed
+
+
+# Hard floor so a freakishly low ADR can't shrink the band to zero
+MIN_STOP_BAND_PCT = 0.50
+
+
+def _stop_band_pct(adr_14d: float) -> float:
+    """Return stop band as percent of trailing high. ADR-driven; floored."""
+    band = cfg.V2_TRAILING_STOP_ADR_MULT * (adr_14d or 0.0)
+    if band <= 0:
+        return cfg.V1_BASELINE_TRAILING_STOP_PCT
+    return max(MIN_STOP_BAND_PCT, band)
 
 
 def trailing_stop_check(ledger: Ledger, save: Callable[[], None]) -> None:
@@ -23,7 +37,6 @@ def trailing_stop_check(ledger: Ledger, save: Callable[[], None]) -> None:
         return
 
     settle_day = (datetime.now(cfg.ET).date() + timedelta(days=1)).isoformat()
-    stop_pct = cfg.V1_BASELINE_TRAILING_STOP_PCT
 
     sells = []
     for p in list(ledger.pod):
@@ -32,18 +45,20 @@ def trailing_stop_check(ledger: Ledger, save: Callable[[], None]) -> None:
         cur = prices.get(p.ticker)
         if cur is None:
             continue
+        # Update trailing peak
         if not p.trailing_high or cur > p.trailing_high:
             p.trailing_high = cur
             p.peak_price = cur
-        stop_px = p.trailing_high * (1.0 - stop_pct / 100.0)
+        band_pct = _stop_band_pct(p.adr_14d)
+        stop_px = p.trailing_high * (1.0 - band_pct / 100.0)
         if cur <= stop_px:
-            sells.append((p, cur, stop_px, p.trailing_high))
+            sells.append((p, cur, stop_px, p.trailing_high, band_pct))
 
     if not sells:
         save()
         return
 
-    for p, cur, stop_px, peak in sells:
+    for p, cur, stop_px, peak, band in sells:
         shares, px = alp_sell(p.ticker, p.shares)
         if shares <= 0 or px <= 0:
             continue
